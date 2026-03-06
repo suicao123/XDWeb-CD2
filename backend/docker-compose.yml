@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  # Container chạy Web (chính là cái bạn vừa build)
+  app:
+    build: .
+    container_name: laravel_app
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html # Đồng bộ code từ máy thật vào container
