@@ -6,7 +6,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/users" element={<Users />} />
+        <Route path="/" element={<Users />} />
       </Routes>
     </BrowserRouter>
   );
