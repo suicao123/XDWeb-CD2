@@ -7,7 +7,7 @@ const Users = () => {
     const [loading, setLoading] = useState(true);
 
    useEffect(() => {
-        fetch('http://localhost:8000/api/users')
+        fetch(`${import.meta.env.VITE_API}/users`)
             .then(response => {
                
                 if (!response.ok) {
