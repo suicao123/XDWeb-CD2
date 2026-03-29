@@ -39,6 +39,8 @@ const Navbar = () => {
 
     const handleLogout = () => {
         localStorage.removeItem("access");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("token_type");
         localStorage.removeItem("refresh");
         localStorage.removeItem("user");
         alert("Đã đăng xuất");

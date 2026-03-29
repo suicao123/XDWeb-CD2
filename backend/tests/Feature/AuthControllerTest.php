@@ -13,7 +13,7 @@ class AuthControllerTest extends TestCase
 
     public function test_user_can_register_and_receive_token(): void
     {
-        $response = $this->postJson('/register', [
+        $response = $this->postJson('/api/auth/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
             'password' => 'password123',
@@ -40,7 +40,7 @@ class AuthControllerTest extends TestCase
             'email' => 'test@example.com',
         ]);
 
-        $response = $this->postJson('/register', [
+        $response = $this->postJson('/api/auth/register', [
             'name' => 'Another User',
             'email' => 'test@example.com',
             'password' => 'password123',
@@ -59,7 +59,7 @@ class AuthControllerTest extends TestCase
             'password' => 'password123',
         ]);
 
-        $response = $this->postJson('/login', [
+        $response = $this->postJson('/api/auth/login', [
             'email' => 'test@example.com',
             'password' => 'password123',
         ]);
@@ -81,7 +81,7 @@ class AuthControllerTest extends TestCase
             'password' => 'password123',
         ]);
 
-        $response = $this->postJson('/login', [
+        $response = $this->postJson('/api/auth/login', [
             'email' => 'test@example.com',
             'password' => 'wrong-password',
         ]);
@@ -99,7 +99,7 @@ class AuthControllerTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $response = $this->postJson('/logout');
+        $response = $this->postJson('/api/auth/logout');
 
         $response
             ->assertOk()
