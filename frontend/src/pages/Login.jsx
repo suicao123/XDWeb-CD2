@@ -3,6 +3,26 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../component/Navbar';
 import Footer from '../component/Footer';
 
+const getErrorMessage = (data, fallbackMessage) => {
+    if (!data) {
+        return fallbackMessage;
+    }
+
+    if (typeof data.message === 'string' && data.message.trim()) {
+        return data.message;
+    }
+
+    if (data.errors && typeof data.errors === 'object') {
+        const firstError = Object.values(data.errors).flat()[0];
+
+        if (firstError) {
+            return firstError;
+        }
+    }
+
+    return fallbackMessage;
+};
+
 const Login = () => {
 
     const [username, setUsername] = useState('');
@@ -16,13 +36,34 @@ const Login = () => {
 
 
         try {
-            const res = await fetch("http://localhost:8000/api/auth/login/", {
+            const res = await fetch(`${BASE_URL}${LOGIN_API}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ login: username, password })
             });
 
-            const data = await res.json();
+            const contentType = res.headers.get('content-type') || '';
+            const data = contentType.includes('application/json') ? await res.json() : null;
+
+            if (!res.ok) {
+                alert(getErrorMessage(data, 'Dang nhap that bai.'));
+                return;
+            }
+
+            localStorage.setItem('access', data.access_token);
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('token_type', data.token_type || 'Bearer');
+
+            if (data.user) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+            }
+
+            const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
+            localStorage.removeItem('redirect_after_login');
+
+            alert('Dang nhap thanh cong.');
+            window.location.href = redirectUrl;
+            return;
 
             if (!res.ok) {
                 alert(data.error || "Đăng nhập thất bại");
@@ -38,13 +79,13 @@ const Login = () => {
             }
 
             // Xử lý chuyển hướng sau khi login
-            const redirectUrl = localStorage.getItem("redirect_after_login") || "/";
+            const legacyRedirectUrl = localStorage.getItem("redirect_after_login") || "/";
             localStorage.removeItem("redirect_after_login");
 
             alert("Đăng nhập thành công");
 
             // Dùng window.location để reload lại Navbar cho cập nhật state User
-            window.location.href = redirectUrl;
+            window.location.href = legacyRedirectUrl;
 
         } catch (err) {
             alert("Lỗi kết nối server");
@@ -77,7 +118,7 @@ const Login = () => {
                                             <input
                                                 type="text"
                                                 className="form-control border-0 bg-transparent"
-                                                placeholder="Username"
+                                                placeholder="Email or username"
                                                 value={username}
                                                 onChange={(e) => setUsername(e.target.value)}
                                                 required
