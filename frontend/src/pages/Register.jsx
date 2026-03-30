@@ -3,6 +3,26 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../component/Navbar';
 import Footer from '../component/Footer';
 
+const getErrorMessage = (data, fallbackMessage) => {
+    if (!data) {
+        return fallbackMessage;
+    }
+
+    if (typeof data.message === 'string' && data.message.trim()) {
+        return data.message;
+    }
+
+    if (data.errors && typeof data.errors === 'object') {
+        const firstError = Object.values(data.errors).flat()[0];
+
+        if (firstError) {
+            return firstError;
+        }
+    }
+
+    return fallbackMessage;
+};
+
 const Register = () => {
     const navigate = useNavigate();
     
@@ -25,6 +45,43 @@ const Register = () => {
     // Xử lý Đăng Ký
     const handleRegister = async (e) => {
         e.preventDefault();
+
+        const payload = {
+            name: formData.fullname,
+            username: formData.username || undefined,
+            email: formData.email,
+            password: formData.password,
+            password_confirmation: formData.confirm_password,
+        };
+
+        if (payload.password !== payload.password_confirmation) {
+            alert('Password confirmation does not match.');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${BASE_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            const contentType = res.headers.get('content-type') || '';
+            const data = contentType.includes('application/json') ? await res.json() : null;
+
+            if (!res.ok) {
+                alert(getErrorMessage(data, 'Register failed.'));
+                return;
+            }
+
+            alert('Register successful.');
+            navigate('/login');
+        } catch (err) {
+            alert('Cannot connect to server.');
+            console.error(err);
+        }
+
+        return;
 
         // Kiểm tra mật khẩu khớp nhau (client-side check)
         if (formData.password !== formData.confirm_password) {
@@ -93,7 +150,7 @@ const Register = () => {
                             <div className="mb-3 input-group bg-light rounded-pill px-3 py-1">
                                 <span className="material-symbols-outlined pt-2 text-secondary">badge</span>
                                 <input type="text" className="form-control border-0 bg-transparent" 
-                                    placeholder="Username" id="username" required 
+                                    placeholder="Username (optional)" id="username"
                                     onChange={handleChange} />
                             </div>
 

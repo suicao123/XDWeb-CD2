@@ -1,7 +1,26 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Navbar from '../component/Navbar';
-import Footer from '../component/Footer';
+
+const getErrorMessage = (data, fallbackMessage) => {
+    if (!data) {
+        return fallbackMessage;
+    }
+
+    if (typeof data.message === 'string' && data.message.trim()) {
+        return data.message;
+    }
+
+    if (data.errors && typeof data.errors === 'object') {
+        const firstError = Object.values(data.errors).flat()[0];
+
+        if (firstError) {
+            return firstError;
+        }
+    }
+
+    return fallbackMessage;
+};
 
 const getErrorMessage = (data, fallbackMessage) => {
     if (!data) {
@@ -25,14 +44,50 @@ const getErrorMessage = (data, fallbackMessage) => {
 
 const Login = () => {
 
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
+    const handleLogin = async (event) => {
+        event.preventDefault();
 
-        const LOGIN_API = import.meta.env.VITE_API_LOGIN;    
-        const BASE_URL = import.meta.env.VITE_API_BASE_URL_API;
+        const loginApi = import.meta.env.VITE_API_LOGIN;
+        const baseUrl = import.meta.env.VITE_API_BASE_URL_API;
+        const loginUrl = `${baseUrl}${loginApi}`;
+
+        try {
+            const res = await fetch(loginUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login: email, password }),
+            });
+
+            const contentType = res.headers.get('content-type') || '';
+            const data = contentType.includes('application/json') ? await res.json() : null;
+
+            if (!res.ok) {
+                alert(getErrorMessage(data, 'Login failed.'));
+                return;
+            }
+
+            localStorage.setItem('access', data.access_token);
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('token_type', data.token_type || 'Bearer');
+
+            if (data.user) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+            }
+
+            const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
+            localStorage.removeItem('redirect_after_login');
+
+            alert('Login successful.');
+            window.location.href = redirectUrl;
+        } catch (err) {
+            alert('Cannot connect to server.');
+            console.error(err);
+        }
+
+        return;
 
 
         try {
