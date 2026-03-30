@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -10,9 +11,29 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $query = Product::query();
+
+        // Case A: Get new products
+        if ($request->has('new') && $request->input('new') === 'true') {
+            $query->orderBy('created_at', 'DESC')->limit(4);
+        }
+        // Case B: Get all products (default)
+        else {
+            $query->orderBy('created_at', 'DESC');
+        }
+
+        $products = $query->get();
+
+        return response()->json($products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'productname' => $product->productname ?? $product->name,
+                'price' => $product->price,
+                'image' => $product->image,
+            ];
+        }));
     }
 
     /**
