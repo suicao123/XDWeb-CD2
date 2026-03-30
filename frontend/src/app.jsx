@@ -13,6 +13,8 @@ import Register from './pages/Register';
 import Cart from './pages/Cart';
 import ProductDetail from './pages/ProductDetail';
 import SearchResult from './pages/SearchResult';
+import Dashboard from './pages/admin/Dashboard';
+
 
 function App() {
   return (
@@ -36,6 +38,9 @@ function App() {
           <Route path="/cart" element={<Cart />} />
 
           <Route path="/search" element={<SearchResult />} />
+
+          <Route path="/admin" element={<Dashboard />} />
+
 
           {/* Trang 404 (Nếu người dùng nhập link linh tinh) */}
           <Route path="*" element={
