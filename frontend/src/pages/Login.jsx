@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../component/Navbar';
 
+// Hàm helper xử lý thông báo lỗi từ API (Đã gộp và tối ưu)
 const getErrorMessage = (data, fallbackMessage) => {
-    if (!data) {
-        return fallbackMessage;
-    }
+    if (!data) return fallbackMessage;
 
     if (typeof data.message === 'string' && data.message.trim()) {
         return data.message;
@@ -13,138 +12,73 @@ const getErrorMessage = (data, fallbackMessage) => {
 
     if (data.errors && typeof data.errors === 'object') {
         const firstError = Object.values(data.errors).flat()[0];
-
-        if (firstError) {
-            return firstError;
-        }
+        if (firstError) return firstError;
     }
 
-    return fallbackMessage;
-};
-
-const getErrorMessage = (data, fallbackMessage) => {
-    if (!data) {
-        return fallbackMessage;
-    }
-
-    if (typeof data.message === 'string' && data.message.trim()) {
-        return data.message;
-    }
-
-    if (data.errors && typeof data.errors === 'object') {
-        const firstError = Object.values(data.errors).flat()[0];
-
-        if (firstError) {
-            return firstError;
-        }
-    }
-
-    return fallbackMessage;
+    return data.error || fallbackMessage;
 };
 
 const Login = () => {
-
-    const [email, setEmail] = useState('');
+    // Sử dụng username để khớp với biến trong input bên dưới
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = async (event) => {
         event.preventDefault();
+        setIsLoading(true);
 
-        const loginApi = import.meta.env.VITE_API_LOGIN;
-        const baseUrl = import.meta.env.VITE_API_BASE_URL_API;
+        // Lấy cấu hình từ biến môi trường
+        const loginApi = import.meta.env.VITE_API_LOGIN || '/login';
+        const baseUrl = import.meta.env.VITE_API_BASE_URL_API || '';
         const loginUrl = `${baseUrl}${loginApi}`;
 
         try {
             const res = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ login: email, password }),
+                // Gửi data: khớp với state username và password
+                body: JSON.stringify({ login: username, password }), 
             });
 
             const contentType = res.headers.get('content-type') || '';
             const data = contentType.includes('application/json') ? await res.json() : null;
 
             if (!res.ok) {
-                alert(getErrorMessage(data, 'Login failed.'));
+                alert(getErrorMessage(data, 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'));
+                setIsLoading(false);
                 return;
             }
 
-            localStorage.setItem('access', data.access_token);
-            localStorage.setItem('access_token', data.access_token);
+            // Lưu Token vào LocalStorage
+            const accessToken = data.access_token || data.access;
+            if (accessToken) {
+                localStorage.setItem('access', accessToken);
+                localStorage.setItem('access_token', accessToken);
+            }
+            
             localStorage.setItem('token_type', data.token_type || 'Bearer');
 
-            if (data.user) {
-                localStorage.setItem('user', JSON.stringify(data.user));
+            // Lưu thông tin User
+            const userData = data.user || (data.username ? { name: data.username } : null);
+            if (userData) {
+                localStorage.setItem('user', JSON.stringify(userData));
             }
 
+            // Xử lý chuyển hướng
             const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
             localStorage.removeItem('redirect_after_login');
 
-            alert('Login successful.');
+            alert('Đăng nhập thành công!');
+            
+            // Reload trang để cập nhật Navbar và chuyển hướng
             window.location.href = redirectUrl;
-        } catch (err) {
-            alert('Cannot connect to server.');
-            console.error(err);
-        }
-
-        return;
-
-
-        try {
-            const res = await fetch(`${BASE_URL}${LOGIN_API}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ login: username, password })
-            });
-
-            const contentType = res.headers.get('content-type') || '';
-            const data = contentType.includes('application/json') ? await res.json() : null;
-
-            if (!res.ok) {
-                alert(getErrorMessage(data, 'Dang nhap that bai.'));
-                return;
-            }
-
-            localStorage.setItem('access', data.access_token);
-            localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('token_type', data.token_type || 'Bearer');
-
-            if (data.user) {
-                localStorage.setItem('user', JSON.stringify(data.user));
-            }
-
-            const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
-            localStorage.removeItem('redirect_after_login');
-
-            alert('Dang nhap thanh cong.');
-            window.location.href = redirectUrl;
-            return;
-
-            if (!res.ok) {
-                alert(data.error || "Đăng nhập thất bại");
-                return;
-            }
-
-            // Lưu Token và thông tin user vào LocalStorage
-            localStorage.setItem("access", data.access);
-            localStorage.setItem("refresh", data.refresh);
-            if (data.username) {
-                localStorage.setItem("username", data.username);
-                localStorage.setItem("user", JSON.stringify({ name: data.username }));
-            }
-
-            // Xử lý chuyển hướng sau khi login
-            const legacyRedirectUrl = localStorage.getItem("redirect_after_login") || "/";
-            localStorage.removeItem("redirect_after_login");
-
-            alert("Đăng nhập thành công");
-
-            // Dùng window.location để reload lại Navbar cho cập nhật state User
-            window.location.href = legacyRedirectUrl;
 
         } catch (err) {
-            alert("Lỗi kết nối server");
-            console.error(err);
+            alert('Không thể kết nối đến server.');
+            console.error("Login Error:", err);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -155,7 +89,6 @@ const Login = () => {
                 style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
 
                 <div className="container">
-                    
                     <div className="row justify-content-center">
                         <div className="col-12 col-md-10 col-lg-8 col-xl-9">
                             <div className="row overflow-hidden shadow-lg border-0 bg-white" style={{ borderRadius: '30px' }}>
@@ -190,14 +123,19 @@ const Login = () => {
                                                 required
                                             />
                                         </div>
-                                        <button type="submit" className="btn btn-primary w-100 rounded-pill py-2 fw-bold mb-4"
-                                            style={{ background: 'rgb(192, 68, 68)', border: 'none' }}>
-                                            Login Now
+                                        <button 
+                                            type="submit" 
+                                            className="btn btn-primary w-100 rounded-pill py-2 fw-bold mb-4"
+                                            disabled={isLoading}
+                                            style={{ background: 'rgb(192, 68, 68)', border: 'none' }}
+                                        >
+                                            {isLoading ? 'Connecting...' : 'Login Now'}
                                         </button>
                                     </form>
 
                                     <div className="d-flex align-items-center text-center mb-4">
-                                        <hr className="flex-grow-1" /> <span className="px-2 small text-muted">Login with Others</span>
+                                        <hr className="flex-grow-1" /> 
+                                        <span className="px-2 small text-muted">Login with Others</span>
                                         <hr className="flex-grow-1" />
                                     </div>
 
@@ -221,11 +159,13 @@ const Login = () => {
                                     <div className="text-center w-100">
                                         <div style={{ position: 'relative', display: 'inline-block', width: '70%' }}>
                                             <div style={{ position: 'absolute', top: '10%', left: '10%', width: '100px', height: '100px', background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
-                                            {/* Đảm bảo đường dẫn ảnh đúng với thư mục public của bạn */}
-                                            <img src="/img/user-verification-unauthorized-access-prevention-private-account-authentication-cyber-security-people-entering-login-password-safety-measures_335657-3530.png"
+                                            <img 
+                                                src="/img/user-verification-unauthorized-access-prevention-private-account-authentication-cyber-security-people-entering-login-password-safety-measures_335657-3530.png"
                                                 className="img-fluid rounded-4 shadow"
                                                 style={{ position: 'relative', zIndex: 2, width: '100%' }}
-                                                alt="Login Illustration" />
+                                                alt="Login Illustration" 
+                                                onError={(e) => { e.target.src = "https://via.placeholder.com/400x400?text=Login+Image"; }}
+                                            />
                                         </div>
                                     </div>
                                 </div>
