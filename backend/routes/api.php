@@ -28,6 +28,8 @@ Route::get('/product/{id}', [ProductController::class, 'show']);
 Route::get('/users', [UserController::class, 'index']);
 Route::get('/users/{id}', [UserController::class, 'show']);
 
+// Product
+Route::get('/product/search/', [ProductController::class, 'search']);
 // Categories
 Route::get('/category', [CategoryController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
