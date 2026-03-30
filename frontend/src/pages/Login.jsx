@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../component/Navbar';
 
-// Hàm helper xử lý thông báo lỗi từ API
+// Hàm helper xử lý thông báo lỗi từ API (Đã gộp và tối ưu)
 const getErrorMessage = (data, fallbackMessage) => {
     if (!data) return fallbackMessage;
-    
+
     if (typeof data.message === 'string' && data.message.trim()) {
         return data.message;
     }
@@ -18,28 +18,9 @@ const getErrorMessage = (data, fallbackMessage) => {
     return data.error || fallbackMessage;
 };
 
-const getErrorMessage = (data, fallbackMessage) => {
-    if (!data) {
-        return fallbackMessage;
-    }
-
-    if (typeof data.message === 'string' && data.message.trim()) {
-        return data.message;
-    }
-
-    if (data.errors && typeof data.errors === 'object') {
-        const firstError = Object.values(data.errors).flat()[0];
-
-        if (firstError) {
-            return firstError;
-        }
-    }
-
-    return fallbackMessage;
-};
-
 const Login = () => {
-    const [email, setEmail] = useState('');
+    // Sử dụng username để khớp với biến trong input bên dưới
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -47,7 +28,7 @@ const Login = () => {
         event.preventDefault();
         setIsLoading(true);
 
-        // Lấy config từ biến môi trường (Vite)
+        // Lấy cấu hình từ biến môi trường
         const loginApi = import.meta.env.VITE_API_LOGIN || '/login';
         const baseUrl = import.meta.env.VITE_API_BASE_URL_API || '';
         const loginUrl = `${baseUrl}${loginApi}`;
@@ -56,8 +37,8 @@ const Login = () => {
             const res = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // Lưu ý: Kiểm tra Backend của bạn nhận field 'login' hay 'email'
-                body: JSON.stringify({ login: email, password }), 
+                // Gửi data: khớp với state username và password
+                body: JSON.stringify({ login: username, password }), 
             });
 
             const contentType = res.headers.get('content-type') || '';
@@ -69,16 +50,14 @@ const Login = () => {
                 return;
             }
 
-            // Lưu Token vào LocalStorage (Ưu tiên lấy access_token hoặc access tùy API)
+            // Lưu Token vào LocalStorage
             const accessToken = data.access_token || data.access;
             if (accessToken) {
                 localStorage.setItem('access', accessToken);
                 localStorage.setItem('access_token', accessToken);
             }
             
-            if (data.token_type) {
-                localStorage.setItem('token_type', data.token_type);
-            }
+            localStorage.setItem('token_type', data.token_type || 'Bearer');
 
             // Lưu thông tin User
             const userData = data.user || (data.username ? { name: data.username } : null);
@@ -90,77 +69,13 @@ const Login = () => {
             const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
             localStorage.removeItem('redirect_after_login');
 
-<<<<<<< HEAD
             alert('Đăng nhập thành công!');
             
-            // Dùng window.location để reload toàn bộ app, giúp Navbar cập nhật trạng thái mới
+            // Reload trang để cập nhật Navbar và chuyển hướng
             window.location.href = redirectUrl;
-=======
-            alert('Login successful.');
-            window.location.href = redirectUrl;
-        } catch (err) {
-            alert('Cannot connect to server.');
-            console.error(err);
-        }
-
-        return;
-
-
-        try {
-            const res = await fetch(`${BASE_URL}${LOGIN_API}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ login: username, password })
-            });
-
-            const contentType = res.headers.get('content-type') || '';
-            const data = contentType.includes('application/json') ? await res.json() : null;
-
-            if (!res.ok) {
-                alert(getErrorMessage(data, 'Dang nhap that bai.'));
-                return;
-            }
-
-            localStorage.setItem('access', data.access_token);
-            localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('token_type', data.token_type || 'Bearer');
-
-            if (data.user) {
-                localStorage.setItem('user', JSON.stringify(data.user));
-            }
-
-            const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
-            localStorage.removeItem('redirect_after_login');
-
-            alert('Dang nhap thanh cong.');
-            window.location.href = redirectUrl;
-            return;
-
-            if (!res.ok) {
-                alert(data.error || "Đăng nhập thất bại");
-                return;
-            }
-
-            // Lưu Token và thông tin user vào LocalStorage
-            localStorage.setItem("access", data.access);
-            localStorage.setItem("refresh", data.refresh);
-            if (data.username) {
-                localStorage.setItem("username", data.username);
-                localStorage.setItem("user", JSON.stringify({ name: data.username }));
-            }
-
-            // Xử lý chuyển hướng sau khi login
-            const legacyRedirectUrl = localStorage.getItem("redirect_after_login") || "/";
-            localStorage.removeItem("redirect_after_login");
-
-            alert("Đăng nhập thành công");
-
-            // Dùng window.location để reload lại Navbar cho cập nhật state User
-            window.location.href = legacyRedirectUrl;
->>>>>>> 94255824040b6b0dec182bb3c0571ca83ce5b48e
 
         } catch (err) {
-            alert('Lỗi kết nối server. Vui lòng thử lại sau.');
+            alert('Không thể kết nối đến server.');
             console.error("Login Error:", err);
         } finally {
             setIsLoading(false);
