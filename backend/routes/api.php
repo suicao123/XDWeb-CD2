@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,8 @@ Route::get('/user', function (Request $request) {
 Route::get('/users', [UserController::class, 'index']);
 Route::get('/users/{id}', [UserController::class, 'show']);
 
+// Product
+Route::get('/product/search/', [ProductController::class, 'search']);
 // Categories
 Route::get('/category', [CategoryController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
