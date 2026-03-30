@@ -18,6 +18,26 @@ const getErrorMessage = (data, fallbackMessage) => {
     return data.error || fallbackMessage;
 };
 
+const getErrorMessage = (data, fallbackMessage) => {
+    if (!data) {
+        return fallbackMessage;
+    }
+
+    if (typeof data.message === 'string' && data.message.trim()) {
+        return data.message;
+    }
+
+    if (data.errors && typeof data.errors === 'object') {
+        const firstError = Object.values(data.errors).flat()[0];
+
+        if (firstError) {
+            return firstError;
+        }
+    }
+
+    return fallbackMessage;
+};
+
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -70,10 +90,74 @@ const Login = () => {
             const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
             localStorage.removeItem('redirect_after_login');
 
+<<<<<<< HEAD
             alert('Đăng nhập thành công!');
             
             // Dùng window.location để reload toàn bộ app, giúp Navbar cập nhật trạng thái mới
             window.location.href = redirectUrl;
+=======
+            alert('Login successful.');
+            window.location.href = redirectUrl;
+        } catch (err) {
+            alert('Cannot connect to server.');
+            console.error(err);
+        }
+
+        return;
+
+
+        try {
+            const res = await fetch(`${BASE_URL}${LOGIN_API}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ login: username, password })
+            });
+
+            const contentType = res.headers.get('content-type') || '';
+            const data = contentType.includes('application/json') ? await res.json() : null;
+
+            if (!res.ok) {
+                alert(getErrorMessage(data, 'Dang nhap that bai.'));
+                return;
+            }
+
+            localStorage.setItem('access', data.access_token);
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('token_type', data.token_type || 'Bearer');
+
+            if (data.user) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+            }
+
+            const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
+            localStorage.removeItem('redirect_after_login');
+
+            alert('Dang nhap thanh cong.');
+            window.location.href = redirectUrl;
+            return;
+
+            if (!res.ok) {
+                alert(data.error || "Đăng nhập thất bại");
+                return;
+            }
+
+            // Lưu Token và thông tin user vào LocalStorage
+            localStorage.setItem("access", data.access);
+            localStorage.setItem("refresh", data.refresh);
+            if (data.username) {
+                localStorage.setItem("username", data.username);
+                localStorage.setItem("user", JSON.stringify({ name: data.username }));
+            }
+
+            // Xử lý chuyển hướng sau khi login
+            const legacyRedirectUrl = localStorage.getItem("redirect_after_login") || "/";
+            localStorage.removeItem("redirect_after_login");
+
+            alert("Đăng nhập thành công");
+
+            // Dùng window.location để reload lại Navbar cho cập nhật state User
+            window.location.href = legacyRedirectUrl;
+>>>>>>> 94255824040b6b0dec182bb3c0571ca83ce5b48e
 
         } catch (err) {
             alert('Lỗi kết nối server. Vui lòng thử lại sau.');
@@ -108,8 +192,8 @@ const Login = () => {
                                                 type="text"
                                                 className="form-control border-0 bg-transparent"
                                                 placeholder="Email or username"
-                                                value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
+                                                value={username}
+                                                onChange={(e) => setUsername(e.target.value)}
                                                 required
                                             />
                                         </div>
