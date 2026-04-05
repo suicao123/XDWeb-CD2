@@ -15,13 +15,11 @@ class OrderController extends Controller
     {
         $user = auth()->user();
 
-        // ✅ Validate
         $request->validate([
             'payment_method' => 'required|in:cod,momo',
             'address' => 'required|string'
         ]);
 
-        // Lấy cart
         $cartItems = Cart::where('user_id', $user->id)
             ->with('product')
             ->get();
@@ -36,14 +34,11 @@ class OrderController extends Controller
 
             $total = 0;
 
-            // Tính tổng order
             foreach ($cartItems as $item) {
                 if (!$item->product) continue;
-
                 $total += $item->product->price * $item->quantity;
             }
 
-            // Tạo order
             $order = Order::create([
                 'user_id' => $user->id,
                 'total' => $total,
@@ -52,7 +47,6 @@ class OrderController extends Controller
                 'address' => $request->address
             ]);
 
-            // 🔥 Tạo order details (FIX CHÍNH Ở ĐÂY)
             foreach ($cartItems as $item) {
                 if (!$item->product) continue;
 
@@ -64,7 +58,7 @@ class OrderController extends Controller
                     'product_id' => $item->product_id,
                     'quantity' => $quantity,
                     'price' => $price,
-                    'total' => $price * $quantity // 🔥 BẮT BUỘC
+                    'total' => $price * $quantity
                 ]);
             }
 
@@ -73,16 +67,85 @@ class OrderController extends Controller
                 Cart::where('user_id', $user->id)->delete();
 
                 return response()->json([
-                    'message' => 'Order created successfully (COD)',
+                    'message' => 'Order created (COD)',
                     'order' => $order
                 ]);
             }
 
             // MOMO
             if ($request->payment_method === 'momo') {
+
+                $endpoint = config('momo.endpoint');
+                $partnerCode = config('momo.partner_code');
+                $accessKey = config('momo.access_key');
+                $secretKey = config('momo.secret_key');
+                $redirectUrl = config('momo.redirect_url');
+                $ipnUrl = config('momo.ipn_url');
+
+                $orderId = time() . "_" . $order->id;
+                $requestId = time() . "";
+                $amount = (string) $total; // FIX
+                $orderInfo = "Thanh toán đơn hàng #" . $order->id;
+                $extraData = "";
+
+                // FIX SIGNATURE
+                $rawHash = "accessKey=$accessKey"
+                    . "&amount=$amount"
+                    . "&extraData=$extraData"
+                    . "&ipnUrl=$ipnUrl"
+                    . "&orderId=$orderId"
+                    . "&orderInfo=$orderInfo"
+                    . "&partnerCode=$partnerCode"
+                    . "&redirectUrl=$redirectUrl"
+                    . "&requestId=$requestId"
+                    . "&requestType=payWithATM";
+
+                $signature = hash_hmac("sha256", $rawHash, $secretKey);
+
+                // FIX DATA
+                $data = [
+                    'partnerCode' => $partnerCode,
+                    'partnerName' => "Test",
+                    'storeId' => "MomoTestStore",
+                    'requestId' => $requestId,
+                    'amount' => $amount,
+                    'orderId' => $orderId,
+                    'orderInfo' => $orderInfo,
+                    'redirectUrl' => $redirectUrl,
+                    'ipnUrl' => $ipnUrl,
+                    'lang' => 'vi',
+                    'extraData' => $extraData,
+                    'requestType' => "payWithATM",
+                    'signature' => $signature
+                ];
+
+                // CURL
+                $ch = curl_init($endpoint);
+
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Content-Length: ' . strlen(json_encode($data))
+                ]);
+
+                $result = curl_exec($ch);
+
+                if (curl_errno($ch)) {
+                    return response()->json([
+                        'error' => curl_error($ch)
+                    ]);
+                }
+
+                curl_close($ch);
+
+                $result = json_decode($result, true);
+
                 return response()->json([
-                    'message' => 'Redirect to MoMo',
-                    'payUrl' => 'https://test-payment.momo.vn'
+                    'message' => 'Momo created',
+                    'momo_response' => $result,
+                    'payUrl' => $result['payUrl'] ?? null
                 ]);
             }
 
@@ -90,5 +153,26 @@ class OrderController extends Controller
                 'message' => 'Invalid payment method'
             ], 400);
         });
+    }
+
+    public function momoIpn(Request $request)
+    {
+        $orderId = explode('_', $request->orderId)[1];
+        $order = Order::find($orderId);
+
+        if ($request->resultCode == 0) {
+            $order->status = 1;
+            $order->save();
+        }
+
+        return response()->json(['message' => 'OK']);
+    }
+
+    public function momoReturn(Request $request)
+    {
+        return response()->json([
+            'message' => 'Return from momo',
+            'data' => $request->all()
+        ]);
     }
 }

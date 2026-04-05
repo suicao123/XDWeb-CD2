@@ -49,3 +49,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // ORDER 
     Route::post('/order', [OrderController::class, 'store']);
 });
+Route::post('/momo/ipn', [OrderController::class, 'momoIpn']);
+Route::get('/momo/return', [OrderController::class, 'momoReturn']);
