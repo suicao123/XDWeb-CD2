@@ -11,14 +11,14 @@ class UserController extends Controller
     public function index()
     {
         return response()->json(
-            User::select('id', 'username', 'first_name', 'last_name', 'email')->get()
+            User::select('id', 'username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser')->get()
         );
     }
 
     // Lấy 1 user theo ID
     public function show($id)
     {
-        $user = User::select('id', 'username', 'first_name', 'last_name', 'email')->find($id);
+        $user = User::select('id', 'username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser')->find($id);
         if (!$user) {
             return response()->json(['message' => 'Not found'], 404);
         }

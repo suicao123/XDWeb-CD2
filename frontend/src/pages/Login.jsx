@@ -66,7 +66,9 @@ const Login = () => {
             }
 
             // Xử lý chuyển hướng
-            const redirectUrl = localStorage.getItem('redirect_after_login') || '/';
+            const isAdminUser = Boolean(userData?.is_superuser || userData?.is_staff);
+            const savedRedirectUrl = localStorage.getItem('redirect_after_login');
+            const redirectUrl = isAdminUser ? '/admin' : (savedRedirectUrl || '/');
             localStorage.removeItem('redirect_after_login');
 
             alert('Đăng nhập thành công!');

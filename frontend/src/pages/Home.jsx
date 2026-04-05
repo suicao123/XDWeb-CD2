@@ -10,21 +10,39 @@ const Home = () => {
     const [tetProducts, setTetProducts] = useState([]);
 
     const BASE_URL = import.meta.env.VITE_API_BASE_URL_API;
+    const BASE_IMAGE_URL = import.meta.env.VITE_API_BASE_URL;
     const PRODUCT_API = import.meta.env.VITE_API_PRODUCT;
 
+    const getImageUrl = (imagePath) => {
+        if (!imagePath) return "https://via.placeholder.com/300x300?text=No+Image";
+        if (imagePath.startsWith("http")) return imagePath;
+        return `${BASE_IMAGE_URL}${imagePath.startsWith("/") ? imagePath : `/${imagePath}`}`;
+    };
 
     useEffect(() => {
-        // Load New Products
-        fetch(`${BASE_URL}${PRODUCT_API}?new=true`)
-            .then(res => res.json())
-            .then(data => setNewProducts(data))
-            .catch(err => console.error("Error loading new products:", err));
+        const loadProducts = async () => {
+            try {
+                const newProductsResponse = await fetch(`${BASE_URL}${PRODUCT_API}?new=true`);
+                if (!newProductsResponse.ok) {
+                    throw new Error(`Failed to load new products (${newProductsResponse.status})`);
+                }
 
-        // Load Tet Products
-        fetch(`${BASE_URL}${PRODUCT_API}?new=true`)
-            .then(res => res.json())
-            .then(data => setTetProducts(data))
-            .catch(err => console.error("Error loading tet products:", err));
+                const newProductsData = await newProductsResponse.json();
+                setNewProducts(newProductsData);
+
+                const tetProductsResponse = await fetch(`${BASE_URL}${PRODUCT_API}?new=true`);
+                if (!tetProductsResponse.ok) {
+                    throw new Error(`Failed to load tet products (${tetProductsResponse.status})`);
+                }
+
+                const tetProductsData = await tetProductsResponse.json();
+                setTetProducts(tetProductsData);
+            } catch (err) {
+                console.error("Error loading home products:", err);
+            }
+        };
+
+        loadProducts();
     }, []);
 
     const formatPrice = (price) => {
@@ -92,7 +110,7 @@ const Home = () => {
                                 <div className="card product-card p-4 h-100 border-0 shadow-sm" style={{ borderRadius: '24px', transition: 'transform 0.3s ease' }}>
                                     <div className="card-body d-flex flex-column align-items-center text-center">
                                         <div style={{ height: '180px', width: '100%' }} className="d-flex align-items-center justify-content-center mb-4">
-                                            <img src={`http://localhost:8000${p.image}`} className="img-fluid" style={{ maxHeight: '100%', width: 'auto', objectFit: 'contain' }} alt={p.productname} />
+                                            <img src={getImageUrl(p.image)} className="img-fluid" style={{ maxHeight: '100%', width: 'auto', objectFit: 'contain' }} alt={p.productname} />
                                         </div>
                                         <h5 className="fw-bold mb-2" style={{ fontSize: '1.2rem', minHeight: '3rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                             {p.productname}
@@ -130,7 +148,7 @@ const Home = () => {
                                 <div className="card product-card p-4 h-100 border-0 shadow-sm" style={{ borderRadius: '24px', transition: 'transform 0.3s ease' }}>
                                     <div className="card-body d-flex flex-column align-items-center text-center">
                                         <div style={{ height: '180px', width: '100%' }} className="d-flex align-items-center justify-content-center mb-4">
-                                            <img src={`http://localhost:8000${p.image}`} className="img-fluid" style={{ maxHeight: '100%', width: 'auto', objectFit: 'contain' }} alt={p.productname} />
+                                            <img src={getImageUrl(p.image)} className="img-fluid" style={{ maxHeight: '100%', width: 'auto', objectFit: 'contain' }} alt={p.productname} />
                                         </div>
                                         <h5 className="fw-bold mb-2" style={{ fontSize: '1.2rem', minHeight: '3rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                             {p.productname}

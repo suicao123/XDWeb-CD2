@@ -28,7 +28,7 @@ const ProductDetail = () => {
     const getImageUrl = (imagePath) => {
         if (!imagePath) return "https://via.placeholder.com/150";
         if (imagePath.startsWith("http")) return imagePath;
-        return `${BASE_URL}${imagePath}`;
+        return `${BASE_URL}${imagePath.startsWith("/") ? imagePath : `/${imagePath}`}`;
     };
 
     // Hàm format giá
@@ -41,7 +41,10 @@ const ProductDetail = () => {
 
         // Fetch chi tiết sản phẩm
         fetch(`${BASE_URL_API}${PRODUCT_API}/${id}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`Lỗi tải sản phẩm (${res.status})`);
+                return res.json();
+            })
             .then(data => {
                 setProduct(data);
                 setLoading(false);
@@ -49,8 +52,11 @@ const ProductDetail = () => {
             .catch(err => console.error("Lỗi tải sản phẩm:", err));
 
         // Fetch sản phẩm mới (để hiện ở dưới cùng)
-        fetch(`${BASE_URL}${PRODUCT_API}?new=true`)
-            .then(res => res.json())
+        fetch(`${BASE_URL_API}${PRODUCT_API}?new=true`)
+            .then(res => {
+                if (!res.ok) throw new Error(`Lỗi tải sản phẩm mới (${res.status})`);
+                return res.json();
+            })
             .then(data => setNewProducts(data))
             .catch(err => console.error("Lỗi tải sản phẩm mới:", err));
 
