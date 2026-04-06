@@ -76,7 +76,7 @@ const ProductDetail = () => {
             return;
         }
 
-        fetch(`${BASE_URL_API}${CART_API}/add/`, {
+        fetch(`${BASE_URL_API}${CART_API}/add`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

@@ -15,7 +15,8 @@ const Cart = () => {
 
 
     const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
+    const BASE_URL_API = import.meta.env.VITE_API_BASE_URL_API;
+    const CART_API = import.meta.env.VITE_API_CART;
 
     // Hàm xử lý link ảnh
     const getImageUrl = (imagePath) => {
@@ -33,76 +34,125 @@ const Cart = () => {
             navigate('/login');
             return;
         }
-        const BASE_URL_API = import.meta.env.VITE_API_BASE_URL_API;
-        const CART_API = import.meta.env.VITE_API_CART;
+
         // Giả sử API lấy danh sách giỏ hàng là GET /api/cart/
         fetch(`${BASE_URL_API}${CART_API}`, {
             headers: {
                 "Authorization": "Bearer " + token
             }
         })
-        .then(res => {
-            if (!res.ok) throw new Error("Lỗi tải giỏ hàng");
-            return res.json();
-        })
-        .then(data => {
-            // Lưu ý: Tùy vào cấu trúc JSON backend trả về (data có thể là mảng hoặc object chứa mảng)
-            // Ở đây tôi giả sử data là mảng các item
-            setCartItems(data);
-            calculateTotal(data);
-            setLoading(false);
-        })
-        .catch(err => {
-            console.error(err);
-            setLoading(false);
-        });
+            .then(res => {
+                if (!res.ok) throw new Error("Lỗi tải giỏ hàng");
+                return res.json();
+            })
+            .then(data => {
+                setCartItems(data);
+                calculateTotal(data);
+                setLoading(false);
+            })
+            .catch(err => {
+                console.error(err);
+                setLoading(false);
+            });
     }, [navigate]);
 
-    // 2. Tính tổng tiền
     const calculateTotal = (items) => {
         const totalAmount = items.reduce((sum, item) => {
-            // Giả sử item có cấu trúc: { quantity: 2, product: { price: 100000, ... } }
             return sum + (item.product.price * item.quantity);
         }, 0);
         setTotal(totalAmount);
     };
 
-    // 3. Xử lý xóa sản phẩm
+
+    const handleCheckout = async () => {
+        const token = localStorage.getItem("access");
+
+        const orderData = {
+            payment_method: 'momo', // Hoặc lấy từ state nếu có chọn lựa
+            address: 'Địa chỉ người nhận' // Lấy từ input
+        };
+
+        try {
+            const response = await fetch(`${BASE_URL_API}/order`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token,
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(orderData)
+            });
+
+            const result = await response.json();
+
+            if (result.payUrl) {
+                // ĐÂY LÀ DÒNG QUAN TRỌNG: Chuyển hướng người dùng sang trang MoMo
+                window.location.href = result.payUrl;
+            } else {
+                alert("Không nhận được link thanh toán từ MoMo");
+            }
+        } catch (error) {
+            console.error("Lỗi đặt hàng:", error);
+        }
+    };
     const handleRemoveItem = (itemId) => {
         const token = localStorage.getItem("access");
         if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
 
-        fetch(`http://localhost:8000/api/cart/remove/${itemId}/`, { // Cần backend hỗ trợ API này
-            method: "DELETE", // Hoặc POST tùy backend
-            headers: { "Authorization": "Bearer " + token }
-        })
-        .then(res => {
-            if (res.ok) {
-                // Xóa thành công thì cập nhật lại state UI
-                const newItems = cartItems.filter(item => item.id !== itemId);
-                setCartItems(newItems);
-                calculateTotal(newItems);
-            } else {
-                alert("Lỗi khi xóa sản phẩm");
+        fetch(`${BASE_URL_API}/cart/${itemId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Accept": "application/json"
             }
         })
-        .catch(err => console.error(err));
+            .then(res => {
+                if (res.ok) {
+                    const newItems = cartItems.filter(item => item.id !== itemId);
+                    setCartItems(newItems);
+                    calculateTotal(newItems);
+                } else {
+                    alert("Lỗi khi xóa sản phẩm");
+                }
+            })
+            .catch(err => console.error(err));
     };
 
-    // 4. Xử lý tăng giảm số lượng (Tạm thời chỉ update UI, bạn cần thêm API update nếu muốn lưu db)
     const updateQuantity = (id, newQty) => {
         if (newQty < 1) return;
 
+        const token = localStorage.getItem("access");
+
+        const oldItems = [...cartItems];
+
         const newItems = cartItems.map(item => {
-            if (item.id === id) {
-                return { ...item, quantity: newQty };
-            }
+            if (item.id === id) return { ...item, quantity: newQty };
             return item;
         });
         setCartItems(newItems);
         calculateTotal(newItems);
-        
-        // TODO: Gọi API cập nhật số lượng lên server ở đây nếu cần
+
+        fetch(`${BASE_URL_API}/cart/${id}`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify({ quantity: newQty })
+        })
+            .then(async res => {
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.message || "Lỗi cập nhật");
+                }
+            })
+            .catch(err => {
+                console.error("Lỗi API:", err);
+                setCartItems(oldItems);
+                calculateTotal(oldItems);
+                alert("Không thể cập nhật số lượng: " + err.message);
+            });
     };
 
     if (loading) return <div className="text-center mt-5 pt-5"><h3>Đang tải giỏ hàng...</h3></div>;
@@ -146,8 +196,8 @@ const Cart = () => {
                                                 <tr key={item.id}>
                                                     <td>
                                                         <div className="d-flex align-items-center gap-3">
-                                                            <img 
-                                                                src={getImageUrl(item.product.image)} 
+                                                            <img
+                                                                src={getImageUrl(item.product.image)}
                                                                 alt={item.product.productname}
                                                                 className="cart-img rounded"
                                                                 style={{ width: '80px', height: '80px', objectFit: 'contain' }}
@@ -161,18 +211,18 @@ const Cart = () => {
                                                     <td className="fw-semibold">{formatPrice(item.product.price)}đ</td>
                                                     <td>
                                                         <div className="d-flex align-items-center">
-                                                            <button 
+                                                            <button
                                                                 className="btn btn-sm btn-outline-secondary"
                                                                 onClick={() => updateQuantity(item.id, item.quantity - 1)}
                                                             >-</button>
-                                                            <input 
-                                                                type="text" 
-                                                                className="form-control form-control-sm text-center mx-1" 
+                                                            <input
+                                                                type="text"
+                                                                className="form-control form-control-sm text-center mx-1"
                                                                 style={{ width: '50px' }}
                                                                 value={item.quantity}
-                                                                readOnly 
+                                                                readOnly
                                                             />
-                                                            <button 
+                                                            <button
                                                                 className="btn btn-sm btn-outline-secondary"
                                                                 onClick={() => updateQuantity(item.id, item.quantity + 1)}
                                                             >+</button>
@@ -182,7 +232,7 @@ const Cart = () => {
                                                         {formatPrice(item.product.price * item.quantity)}đ
                                                     </td>
                                                     <td>
-                                                        <button 
+                                                        <button
                                                             className="btn btn-sm text-danger"
                                                             onClick={() => handleRemoveItem(item.id)}
                                                         >
@@ -214,9 +264,12 @@ const Cart = () => {
                                     <strong className="fs-5">Tổng cộng:</strong>
                                     <strong className="fs-5 text-danger">{formatPrice(total)}đ</strong>
                                 </div>
-                                <Link to="/payment" className="btn btn-dark w-100 py-2 fw-bold text-white text-decoration-none">
-                                    THANH TOÁN NGAY
-                                </Link>
+                                <button
+                                    onClick={handleCheckout}
+                                    className="btn btn-dark w-100 py-2 fw-bold text-white"
+                                >
+                                    THANH TOÁN NGAY (MOMO)
+                                </button>
                                 <Link to="/" className="btn btn-outline-secondary w-100 mt-2">
                                     Tiếp tục mua sắm
                                 </Link>

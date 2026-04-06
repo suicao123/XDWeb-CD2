@@ -17,6 +17,7 @@ class CategoryController extends Controller
             Category::query()
                 ->orderBy('id')
                 ->get()
+            Category::select('id', 'name', 'description')->get()
         );
     }
 

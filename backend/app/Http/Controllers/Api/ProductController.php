@@ -14,13 +14,27 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $products = Product::query()
-            ->with('category')
-            ->when($request->boolean('new'), fn ($query) => $query->latest())
-            ->when(!$request->boolean('new'), fn ($query) => $query->orderBy('id'))
-            ->get();
+        $query = Product::query();
 
-        return response()->json($products);
+        // Case A: Get new products
+        if ($request->has('new') && $request->input('new') === 'true') {
+            $query->orderBy('created_at', 'DESC')->limit(4);
+        }
+        // Case B: Get all products (default)
+        else {
+            $query->orderBy('created_at', 'DESC');
+        }
+
+        $products = $query->get();
+
+        return response()->json($products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'productname' => $product->productname ?? $product->name,
+                'price' => $product->price,
+                'image' => $product->image,
+            ];
+        }));
     }
 
     /**
@@ -41,9 +55,22 @@ class ProductController extends Controller
      */
     public function show(string $id)
     {
-        return response()->json(
-            Product::with('category')->findOrFail($id)
-        );
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'id' => $product->id,
+            'productname' => $product->productname ?? $product->name,
+            'price' => $product->price,
+            'image' => $product->image,
+            'description' => $product->description ?? '',
+            'status' => $product->status ?? 1
+        ]);
     }
 
     /**
@@ -55,6 +82,34 @@ class ProductController extends Controller
         $product->update($this->validateProduct($request));
 
         return response()->json($product->load('category'));
+    }
+
+    /**
+     * GET /product/search?q=...
+     * Tìm kiếm sản phẩm theo từ khóa.
+     * Chỉ trả về các trường: id, productname, price, image.
+     */
+    public function search(Request $request)
+    {
+        $keyword = trim($request->query('q', ''));
+
+        if (empty($keyword)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Vui lòng cung cấp tham số ?q=.',
+            ], 422);
+        }
+
+        $products = Product::where('status', 1)
+            ->where(function ($q) use ($keyword) {
+                $q->where('productname', 'LIKE', '%' . $keyword . '%')
+                  ->orWhere('description', 'LIKE', '%' . $keyword . '%')
+                  ->orWhere('detail',      'LIKE', '%' . $keyword . '%');
+            })
+            ->orderBy('created_at', 'desc')
+            ->get(['id', 'productname', 'price', 'image']);
+
+        return response()->json($products);
     }
 
     /**

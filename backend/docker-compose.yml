@@ -8,3 +8,4 @@ services:
       - "8000:80"
     volumes:
       - .:/var/www/html # Đồng bộ code từ máy thật vào container
+      - /var/www/html/vendor    # Volume ẩn: Giữ lại vendor của Image (giải pháp "một lần")
