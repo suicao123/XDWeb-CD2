@@ -63,6 +63,38 @@ const Cart = () => {
         setTotal(totalAmount);
     };
 
+
+    const handleCheckout = async () => {
+        const token = localStorage.getItem("access");
+
+        const orderData = {
+            payment_method: 'momo', // Hoặc lấy từ state nếu có chọn lựa
+            address: 'Địa chỉ người nhận' // Lấy từ input
+        };
+
+        try {
+            const response = await fetch(`${BASE_URL_API}/order`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token,
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(orderData)
+            });
+
+            const result = await response.json();
+
+            if (result.payUrl) {
+                // ĐÂY LÀ DÒNG QUAN TRỌNG: Chuyển hướng người dùng sang trang MoMo
+                window.location.href = result.payUrl;
+            } else {
+                alert("Không nhận được link thanh toán từ MoMo");
+            }
+        } catch (error) {
+            console.error("Lỗi đặt hàng:", error);
+        }
+    };
     const handleRemoveItem = (itemId) => {
         const token = localStorage.getItem("access");
         if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
@@ -232,9 +264,12 @@ const Cart = () => {
                                     <strong className="fs-5">Tổng cộng:</strong>
                                     <strong className="fs-5 text-danger">{formatPrice(total)}đ</strong>
                                 </div>
-                                <Link to="/payment" className="btn btn-dark w-100 py-2 fw-bold text-white text-decoration-none">
-                                    THANH TOÁN NGAY
-                                </Link>
+                                <button
+                                    onClick={handleCheckout}
+                                    className="btn btn-dark w-100 py-2 fw-bold text-white"
+                                >
+                                    THANH TOÁN NGAY (MOMO)
+                                </button>
                                 <Link to="/" className="btn btn-outline-secondary w-100 mt-2">
                                     Tiếp tục mua sắm
                                 </Link>
