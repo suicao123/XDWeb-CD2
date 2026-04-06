@@ -157,15 +157,21 @@ class OrderController extends Controller
 
     public function momoIpn(Request $request)
     {
-        $orderId = explode('_', $request->orderId)[1];
+        $parts = explode('_', $request->orderId);
+        $orderId = $parts[1];
+        
         $order = Order::find($orderId);
 
-        if ($request->resultCode == 0) {
+        if ($order && $request->resultCode == 0) {
             $order->status = 1;
             $order->save();
+
+            Cart::where('user_id', $order->user_id)->delete();
+            
+            return response()->json(['message' => 'Thanh toán thành công và đã xóa giỏ hàng']);
         }
 
-        return response()->json(['message' => 'OK']);
+        return response()->json(['message' => 'Thanh toán thất bại hoặc không tìm thấy đơn hàng'], 400);
     }
 
     public function momoReturn(Request $request)
