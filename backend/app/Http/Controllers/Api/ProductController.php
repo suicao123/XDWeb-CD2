@@ -4,120 +4,54 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = Product::query();
-
-        // Case A: Get new products
-        if ($request->has('new') && $request->input('new') === 'true') {
-            $query->orderBy('created_at', 'DESC')->limit(4);
-        }
-        // Case B: Get all products (default)
-        else {
-            $query->orderBy('created_at', 'DESC');
-        }
-
-        $products = $query->get();
-
-        return response()->json($products->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'productname' => $product->productname ?? $product->name,
-                'price' => $product->price,
-                'image' => $product->image,
-            ];
-        }));
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        $product = Product::create($this->validateProduct($request));
+        $products = Product::query()
+            ->with('category')
+            ->latest()
+            ->when($request->boolean('new'), fn ($query) => $query->limit(4))
+            ->get();
 
         return response()->json(
-            $product->load('category'),
-            201
+            $products->map(fn (Product $product) => $this->formatProduct($product))
         );
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function store(Request $request): JsonResponse
     {
-        $product = Product::find($id);
+        $product = Product::create($this->validateProduct($request))
+            ->load('category');
 
-        if (!$product) {
-            return response()->json([
-                'message' => 'Product not found'
-            ], 404);
-        }
-
-        return response()->json([
-            'id' => $product->id,
-            'productname' => $product->productname ?? $product->name,
-            'price' => $product->price,
-            'image' => $product->image,
-            'description' => $product->description ?? '',
-            'status' => $product->status ?? 1
-        ]);
+        return response()->json($this->formatProduct($product), 201);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function show(string $id): JsonResponse
     {
-        $product = Product::findOrFail($id);
+        $product = Product::query()
+            ->with('category')
+            ->findOrFail($id);
+
+        return response()->json($this->formatProduct($product));
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $product = Product::query()->findOrFail($id);
         $product->update($this->validateProduct($request));
+        $product->load('category');
 
-        return response()->json($product->load('category'));
+        return response()->json($this->formatProduct($product));
     }
 
-    /**
-     * GET /product/search?q=...
-     * Tìm kiếm sản phẩm theo từ khóa.
-     * Chỉ trả về các trường: id, productname, price, image.
-     */
-    public function search(Request $request)
+    public function destroy(string $id): JsonResponse
     {
-        $keyword = trim($request->query('q', ''));
-
-        if (empty($keyword)) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Vui lòng cung cấp tham số ?q=.',
-            ], 422);
-        }
-
-        $products = Product::where('status', 1)
-            ->where(function ($q) use ($keyword) {
-                $q->where('productname', 'LIKE', '%' . $keyword . '%')
-                  ->orWhere('description', 'LIKE', '%' . $keyword . '%')
-                  ->orWhere('detail',      'LIKE', '%' . $keyword . '%');
-            })
-            ->orderBy('created_at', 'desc')
-            ->get(['id', 'productname', 'price', 'image']);
-
-        return response()->json($products);
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        $product = Product::findOrFail($id);
+        $product = Product::query()->findOrFail($id);
         $product->delete();
 
         return response()->json([
@@ -125,7 +59,7 @@ class ProductController extends Controller
         ]);
     }
 
-    public function search(Request $request)
+    public function search(Request $request): JsonResponse
     {
         $keyword = trim((string) $request->query('q', ''));
 
@@ -134,11 +68,19 @@ class ProductController extends Controller
         }
 
         $products = Product::query()
-            ->where('name', 'like', '%' . $keyword . '%')
-            ->orderBy('id')
+            ->with('category')
+            ->where('status', 1)
+            ->where(function ($query) use ($keyword) {
+                $query->where('name', 'like', '%' . $keyword . '%')
+                    ->orWhere('description', 'like', '%' . $keyword . '%')
+                    ->orWhere('detail', 'like', '%' . $keyword . '%');
+            })
+            ->latest()
             ->get();
 
-        return response()->json($products);
+        return response()->json(
+            $products->map(fn (Product $product) => $this->formatProduct($product))
+        );
     }
 
     private function validateProduct(Request $request): array
@@ -155,5 +97,26 @@ class ProductController extends Controller
             'status' => ['required', Rule::in([0, 1, '0', '1'])],
             'category_id' => ['required', 'integer', 'exists:categories,id'],
         ]);
+    }
+
+    private function formatProduct(Product $product): array
+    {
+        return [
+            'id' => $product->id,
+            'name' => $product->name,
+            'productname' => $product->productname,
+            'image' => $product->image,
+            'price' => (float) $product->price,
+            'discount' => (float) ($product->discount ?? 0),
+            'quantity' => (int) ($product->quantity ?? 0),
+            'description' => $product->description,
+            'detail' => $product->detail,
+            'guarantee' => $product->guarantee,
+            'status' => (int) ($product->status ?? 0),
+            'category_id' => $product->category_id,
+            'category' => $product->category,
+            'created_at' => $product->created_at,
+            'updated_at' => $product->updated_at,
+        ];
     }
 }

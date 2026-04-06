@@ -3,14 +3,53 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderDetail;
 use App\Models\Cart;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    public function index(): JsonResponse
+    {
+        $orders = Order::query()
+            ->with(['user', 'orderDetails.product'])
+            ->latest()
+            ->get();
+
+        return response()->json(
+            $orders->map(function (Order $order) {
+                return [
+                    'id' => $order->id,
+                    'user_id' => $order->user_id,
+                    'user_name' => $order->user?->name ?? $order->user?->username ?? 'Guest',
+                    'user_email' => $order->user?->email,
+                    'total' => (float) $order->total,
+                    'address' => $order->address,
+                    'note' => $order->note,
+                    'status' => (int) $order->status,
+                    'process' => (int) ($order->process ?? 0),
+                    'payment_method' => $order->payment_method,
+                    'items_count' => $order->orderDetails->sum('quantity'),
+                    'products' => $order->orderDetails->map(function (OrderDetail $detail) {
+                        return [
+                            'id' => $detail->id,
+                            'product_id' => $detail->product_id,
+                            'product_name' => $detail->product?->productname ?? $detail->product?->name ?? 'Product',
+                            'quantity' => (int) $detail->quantity,
+                            'price' => (float) $detail->price,
+                            'total' => (float) $detail->total,
+                        ];
+                    })->values(),
+                    'created_at' => $order->created_at,
+                    'updated_at' => $order->updated_at,
+                ];
+            })->values()
+        );
+    }
+
     public function store(Request $request)
     {
         $user = auth()->user();

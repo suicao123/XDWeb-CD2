@@ -4,52 +4,77 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(): JsonResponse
     {
         return response()->json(
             Category::query()
+                ->withCount('products')
                 ->orderBy('id')
                 ->get()
-            Category::select('id', 'name', 'description')->get()
         );
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        //
+        $category = Category::create($this->validateCategory($request));
+        $category->loadCount('products');
+
+        return response()->json($category, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(string $id): JsonResponse
     {
-        //
+        $category = Category::query()
+            ->withCount('products')
+            ->findOrFail($id);
+
+        return response()->json($category);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $id): JsonResponse
     {
-        //
+        $category = Category::query()->findOrFail($id);
+        $category->update($this->validateCategory($request, $category->id));
+        $category->loadCount('products');
+
+        return response()->json($category);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(string $id): JsonResponse
     {
-        //
+        $category = Category::query()
+            ->withCount('products')
+            ->findOrFail($id);
+
+        if ($category->products_count > 0) {
+            return response()->json([
+                'message' => 'Cannot delete category that still has products.',
+            ], 422);
+        }
+
+        $category->delete();
+
+        return response()->json([
+            'message' => 'Category deleted successfully.',
+        ]);
+    }
+
+    private function validateCategory(Request $request, ?int $categoryId = null): array
+    {
+        return $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('categories', 'name')->ignore($categoryId),
+            ],
+            'description' => ['nullable', 'string'],
+        ]);
     }
 }

@@ -84,33 +84,33 @@ const Register = () => {
         return;
 
         // Kiểm tra mật khẩu khớp nhau (client-side check)
-        if (formData.password !== formData.confirm_password) {
-            alert("Mật khẩu xác nhận không khớp!");
-            return;
-        }
+        // if (formData.password !== formData.confirm_password) {
+        //     alert("Mật khẩu xác nhận không khớp!");
+        //     return;
+        // }
 
-        try {
-            const res = await fetch(`${BASE_URL}/auth/register`, {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            });
+        // try {
+        //     const res = await fetch(`${BASE_URL}/auth/register`, {
+        //         method: "POST",
+        //         headers: { 
+        //             "Content-Type": "application/json",
+        //             'Accept': 'application/json'
+        //         },
+        //         body: JSON.stringify(formData)
+        //     });
 
-            const data = await res.json();
+        //     const data = await res.json();
 
-            if (!res.ok) {
-                alert(data.error || "Đăng ký thất bại");
-            } else {
-                alert("Đăng ký thành công 🎉");
-                navigate('/login'); // Chuyển hướng sang trang Login
-            }
-        } catch (err) {
-            alert("Lỗi kết nối server");
-            console.error(err);
-        }
+        //     if (!res.ok) {
+        //         alert(data.error || "Đăng ký thất bại");
+        //     } else {
+        //         alert("Đăng ký thành công 🎉");
+        //         navigate('/login'); // Chuyển hướng sang trang Login
+        //     }
+        // } catch (err) {
+        //     alert("Lỗi kết nối server");
+        //     console.error(err);
+        // }
     };
 
     return (

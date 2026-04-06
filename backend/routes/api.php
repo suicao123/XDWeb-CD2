@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\OrderController;
@@ -27,13 +28,22 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/users', [UserController::class, 'index']);
 Route::get('/users/{id}', [UserController::class, 'show']);
+Route::get('/dashboard', [DashboardController::class, 'index']);
+Route::get('/order', [OrderController::class, 'index']);
 
 
 Route::get('/product', [ProductController::class, 'index']);
-Route::get('/product/{id}', [ProductController::class, 'show']);
 Route::get('/product/search', [ProductController::class, 'search']);
+Route::get('/product/{id}', [ProductController::class, 'show']);
+Route::post('/product', [ProductController::class, 'store']);
+Route::put('/product/{id}', [ProductController::class, 'update']);
+Route::delete('/product/{id}', [ProductController::class, 'destroy']);
 
 Route::get('/category', [CategoryController::class, 'index']);
+Route::post('/category', [CategoryController::class, 'store']);
+Route::get('/category/{id}', [CategoryController::class, 'show']);
+Route::put('/category/{id}', [CategoryController::class, 'update']);
+Route::delete('/category/{id}', [CategoryController::class, 'destroy']);
 
 
 Route::middleware('auth:sanctum')->group(function () {
