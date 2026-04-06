@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Product extends Model
 {
@@ -14,7 +15,25 @@ class Product extends Model
         'status', 'category_id'
     ];
 
-    public function category()
+    protected $appends = [
+        'productname',
+    ];
+
+    public function getProductnameAttribute(): string
+    {
+        return $this->attributes['name'] ?? '';
+    }
+
+    public function getImageAttribute(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        return str_starts_with($value, '/') ? $value : '/' . $value;
+    }
+
+    public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }

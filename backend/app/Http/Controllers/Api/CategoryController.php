@@ -14,6 +14,9 @@ class CategoryController extends Controller
     public function index()
     {
         return response()->json(
+            Category::query()
+                ->orderBy('id')
+                ->get()
             Category::select('id', 'name', 'description')->get()
         );
     }

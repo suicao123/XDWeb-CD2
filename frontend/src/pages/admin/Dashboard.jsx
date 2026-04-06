@@ -8,6 +8,41 @@ import React, { useEffect, useState } from 'react';
 export default function Dashboard() {
   // 1. Khai báo state để quản lý tab đang được chọn
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [productsLoaded, setProductsLoaded] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [categoriesError, setCategoriesError] = useState('');
+  const [productFormOpen, setProductFormOpen] = useState(false);
+  const [productFormMode, setProductFormMode] = useState('create');
+  const [productFormError, setProductFormError] = useState('');
+  const [productFormSubmitting, setProductFormSubmitting] = useState(false);
+  const [productFormData, setProductFormData] = useState({
+    id: null,
+    name: '',
+    image: '',
+    price: '',
+    discount: '0',
+    quantity: '0',
+    description: '',
+    detail: '',
+    guarantee: '',
+    status: '1',
+    category_id: '',
+  });
+
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const BASE_URL_API = import.meta.env.VITE_API_BASE_URL_API;
+  const PRODUCT_API = import.meta.env.VITE_API_PRODUCT;
+  const CATEGORY_API = '/category';
+  const USER_API = '/users';
 
   // 2. Định nghĩa danh sách menu bên trái
   const sidebarMenu = [
@@ -20,6 +55,310 @@ export default function Dashboard() {
     { id: 'staff', label: 'Staff', icon: 'badge' },
     { id: 'settings', label: 'Settings', icon: 'settings' },
   ];
+
+  const formatPrice = (price) => new Intl.NumberFormat('vi-VN').format(price ?? 0);
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return 'https://via.placeholder.com/120x120?text=No+Image';
+    if (imagePath.startsWith('http')) return imagePath;
+    return `${BASE_URL}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;
+  };
+
+  const getEmptyProductForm = () => ({
+    id: null,
+    name: '',
+    image: '',
+    price: '',
+    discount: '0',
+    quantity: '0',
+    description: '',
+    detail: '',
+    guarantee: '',
+    status: '1',
+    category_id: categories[0]?.id ? String(categories[0].id) : '',
+  });
+
+  const getApiErrorMessage = async (response, fallbackMessage) => {
+    try {
+      const data = await response.json();
+
+      if (data?.message) {
+        return data.message;
+      }
+
+      if (data?.errors) {
+        return Object.values(data.errors).flat().join(' ');
+      }
+    } catch (error) {
+      console.error('Unable to parse API error:', error);
+    }
+
+    return fallbackMessage;
+  };
+
+  const openNewProductForm = () => {
+    setProductFormMode('create');
+    setProductFormError('');
+    setProductFormData(getEmptyProductForm());
+    setProductFormOpen(true);
+  };
+
+  const openEditProductForm = (product) => {
+    setProductFormMode('edit');
+    setProductFormError('');
+    setProductFormData({
+      id: product.id,
+      name: product.name || product.productname || '',
+      image: product.image || '',
+      price: String(product.price ?? ''),
+      discount: String(product.discount ?? 0),
+      quantity: String(product.quantity ?? 0),
+      description: product.description || '',
+      detail: product.detail || '',
+      guarantee: product.guarantee || '',
+      status: String(product.status ?? 1),
+      category_id: String(product.category_id ?? categories[0]?.id ?? ''),
+    });
+    setProductFormOpen(true);
+  };
+
+  const closeProductForm = () => {
+    if (productFormSubmitting) {
+      return;
+    }
+
+    setProductFormOpen(false);
+    setProductFormError('');
+    setProductFormData(getEmptyProductForm());
+  };
+
+  const handleProductFormChange = (event) => {
+    const { name, value } = event.target;
+
+    setProductFormData((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const filteredProducts = products.filter((product) => {
+    const keyword = productSearch.trim().toLowerCase();
+
+    if (!keyword) {
+      return true;
+    }
+
+    return [
+      product.productname,
+      product.name,
+      product.description,
+      product.category?.name,
+      String(product.id),
+    ]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(keyword));
+  });
+
+  const filteredUsers = users.filter((user) => {
+    const keyword = userSearch.trim().toLowerCase();
+
+    if (!keyword) {
+      return true;
+    }
+
+    return [
+      user.name,
+      user.username,
+      user.email,
+      user.first_name,
+      user.last_name,
+      String(user.id),
+    ]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(keyword));
+  });
+
+  const loadProducts = async () => {
+    try {
+      setProductsLoading(true);
+      setProductsError('');
+
+      const response = await fetch(`${BASE_URL_API}${PRODUCT_API}`);
+
+      if (!response.ok) {
+        throw new Error(`Khong tai duoc danh sach san pham (${response.status})`);
+      }
+
+      const data = await response.json();
+      setProducts(Array.isArray(data) ? data : []);
+      setProductsLoaded(true);
+    } catch (error) {
+      console.error('Error loading admin products:', error);
+      setProductsError(error.message || 'Khong the tai san pham');
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      setUsersLoading(true);
+      setUsersError('');
+
+      const response = await fetch(`${BASE_URL_API}${USER_API}`);
+
+      if (!response.ok) {
+        throw new Error(`Khong tai duoc danh sach nguoi dung (${response.status})`);
+      }
+
+      const data = await response.json();
+      setUsers(Array.isArray(data) ? data : []);
+      setUsersLoaded(true);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      setUsersError(error.message || 'Khong the tai nguoi dung');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      setCategoriesError('');
+
+      const response = await fetch(`${BASE_URL_API}${CATEGORY_API}`);
+
+      if (!response.ok) {
+        throw new Error(`Khong tai duoc categories (${response.status})`);
+      }
+
+      const data = await response.json();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      setCategoriesError(error.message || 'Khong the tai category');
+    }
+  };
+
+  const handleProductSubmit = async (event) => {
+    event.preventDefault();
+    setProductFormError('');
+
+    const payload = {
+      name: productFormData.name.trim(),
+      image: productFormData.image.trim(),
+      price: Number(productFormData.price),
+      discount: Number(productFormData.discount || 0),
+      quantity: Number(productFormData.quantity || 0),
+      description: productFormData.description.trim(),
+      detail: productFormData.detail.trim(),
+      guarantee: productFormData.guarantee.trim(),
+      status: Number(productFormData.status),
+      category_id: Number(productFormData.category_id),
+    };
+
+    if (!payload.name || !payload.image || !productFormData.category_id) {
+      setProductFormError('Vui long nhap ten, image va category.');
+      return;
+    }
+
+    try {
+      setProductFormSubmitting(true);
+
+      const isEditing = productFormMode === 'edit' && productFormData.id;
+      const response = await fetch(
+        isEditing ? `${BASE_URL_API}${PRODUCT_API}/${productFormData.id}` : `${BASE_URL_API}${PRODUCT_API}`,
+        {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, 'Khong the luu san pham'));
+      }
+
+      const savedProduct = await response.json();
+
+      setProducts((current) => {
+        if (isEditing) {
+          return current.map((product) => product.id === savedProduct.id ? savedProduct : product);
+        }
+
+        return [savedProduct, ...current];
+      });
+
+      setProductsLoaded(true);
+      setProductFormOpen(false);
+      setProductFormData(getEmptyProductForm());
+    } catch (error) {
+      console.error('Error saving product:', error);
+      setProductFormError(error.message || 'Khong the luu san pham');
+    } finally {
+      setProductFormSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async (product) => {
+    const confirmed = window.confirm(`Ban co chac muon xoa "${product.productname || product.name}"?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL_API}${PRODUCT_API}/${product.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, 'Khong the xoa san pham'));
+      }
+
+      setProducts((current) => current.filter((item) => item.id !== product.id));
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      window.alert(error.message || 'Khong the xoa san pham');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'products' || productsLoaded) {
+      return;
+    }
+
+    loadProducts();
+  }, [activeTab, productsLoaded, BASE_URL_API, PRODUCT_API]);
+
+  useEffect(() => {
+    if (activeTab !== 'customers' || usersLoaded) {
+      return;
+    }
+
+    loadUsers();
+  }, [activeTab, usersLoaded, BASE_URL_API, USER_API]);
+
+  useEffect(() => {
+    if (activeTab !== 'products' || categories.length > 0) {
+      return;
+    }
+
+    loadCategories();
+  }, [activeTab, categories.length, BASE_URL_API, CATEGORY_API]);
+
+  useEffect(() => {
+    if (!productFormOpen || productFormData.category_id || categories.length === 0) {
+      return;
+    }
+
+    setProductFormData((current) => ({
+      ...current,
+      category_id: String(categories[0].id),
+    }));
+  }, [productFormOpen, productFormData.category_id, categories]);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -120,7 +459,13 @@ export default function Dashboard() {
           </nav>
           
           <div className="mt-auto pt-6 border-t border-slate-100/50">
-            <button className="w-full bg-gradient-to-br from-primary to-primary-container text-white rounded-xl py-3 px-4 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                setActiveTab('products');
+                openNewProductForm();
+              }}
+              className="w-full bg-gradient-to-br from-primary to-primary-container text-white rounded-xl py-3 px-4 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2"
+            >
               <span className="material-symbols-outlined text-base">add</span>
               New Product
             </button>
@@ -134,7 +479,27 @@ export default function Dashboard() {
             <div className="flex items-center flex-1 max-w-xl">
               <div className="relative w-full group">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
-                <input className="w-full pl-12 pr-4 py-2 bg-surface-container-low border-none rounded-full focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-sm outline-none" placeholder="Search orders, products, or customers..." type="text" />
+                <input
+                  className="w-full pl-12 pr-4 py-2 bg-surface-container-low border-none rounded-full focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-sm outline-none"
+                  placeholder={
+                    activeTab === 'products'
+                      ? 'Search products by name, id, or description...'
+                      : activeTab === 'customers'
+                        ? 'Search users by name, username, email, or id...'
+                        : 'Search orders, products, or customers...'
+                  }
+                  type="text"
+                  value={activeTab === 'products' ? productSearch : activeTab === 'customers' ? userSearch : ''}
+                  onChange={(e) => {
+                    if (activeTab === 'products') {
+                      setProductSearch(e.target.value);
+                    }
+
+                    if (activeTab === 'customers') {
+                      setUserSearch(e.target.value);
+                    }
+                  }}
+                />
               </div>
             </div>
             <div className="flex items-center gap-4 ml-8">
@@ -143,9 +508,6 @@ export default function Dashboard() {
               </button>
               <button className="p-2 text-slate-500 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 rounded-full transition-all flex items-center justify-center">
                 <span className="material-symbols-outlined">apps</span>
-              </button>
-              <button className="px-4 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface text-sm font-semibold rounded-full transition-all active:scale-95">
-                Quick Action
               </button>
               <div className="h-8 w-px bg-slate-200/50 mx-2"></div>
               <div className="flex items-center gap-3 pl-2 cursor-pointer group">
@@ -301,6 +663,271 @@ export default function Dashboard() {
                   </div>
                 </section>
               </div>
+            ) : activeTab === 'products' ? (
+              <div className="space-y-8">
+                <section className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-slate-400 font-bold mb-2">Catalog</p>
+                    <h2 className="text-4xl font-extrabold tracking-tight text-on-surface">Product Management</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-full lg:min-w-[420px]">
+                    <div className="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Total Products</p>
+                      <p className="text-3xl font-extrabold tracking-tight text-on-surface mt-2">{products.length}</p>
+                    </div>
+                    <div className="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Visible Results</p>
+                      <p className="text-3xl font-extrabold tracking-tight text-on-surface mt-2">{filteredProducts.length}</p>
+                    </div>
+                    <div className="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Status</p>
+                      <p className="text-lg font-bold tracking-tight text-on-surface mt-3">{productsLoading ? 'Loading...' : 'Synced'}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={openNewProductForm}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-primary text-white px-5 py-3 text-sm font-semibold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-base">add_box</span>
+                    New Product
+                  </button>
+                </section>
+
+                <section className="bg-surface-container-lowest rounded-[1.75rem] shadow-sm overflow-hidden border border-slate-200/60">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 px-6 py-5 border-b border-slate-200/60">
+                    <div>
+                      <h3 className="text-xl font-bold tracking-tight text-on-surface">Live Product Table</h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setProductsLoaded(false);
+                        loadProducts();
+                      }}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base">refresh</span>
+                      Refresh Products
+                    </button>
+                  </div>
+
+                  {productsLoading ? (
+                    <div className="p-10 text-center text-slate-500">
+                      <div className="inline-block h-10 w-10 rounded-full border-4 border-slate-200 border-t-primary animate-spin"></div>
+                      <p className="mt-4 font-medium">Dang tai danh sach san pham...</p>
+                    </div>
+                  ) : productsError ? (
+                    <div className="p-10 text-center">
+                      <span className="material-symbols-outlined text-5xl text-red-400">error</span>
+                      <p className="mt-4 text-lg font-bold text-slate-800">Khong the tai san pham</p>
+                      <p className="mt-2 text-slate-500">{productsError}</p>
+                      <button
+                        onClick={() => {
+                          setProductsLoaded(false);
+                          loadProducts();
+                        }}
+                        className="mt-6 px-5 py-2 rounded-full bg-primary text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        Thu lai
+                      </button>
+                    </div>
+                  ) : filteredProducts.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">
+                      <span className="material-symbols-outlined text-5xl text-slate-300">inventory_2</span>
+                      <p className="mt-4 text-lg font-bold text-slate-800">Khong co san pham phu hop</p>
+                      <p className="mt-2">Thu doi tu khoa tim kiem hoac kiem tra lai du lieu backend.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-[0.2em]">
+                          <tr>
+                            <th className="px-6 py-4 text-left">Product</th>
+                            <th className="px-6 py-4 text-left">ID</th>
+                            <th className="px-6 py-4 text-left">Price</th>
+                            <th className="px-6 py-4 text-left">Stock</th>
+                            <th className="px-6 py-4 text-left">Status</th>
+                            <th className="px-6 py-4 text-left">Category</th>
+                            <th className="px-6 py-4 text-left">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredProducts.map((product) => (
+                            <tr key={product.id} className="border-t border-slate-200/60 hover:bg-slate-50/80 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-4 min-w-[280px]">
+                                  <img
+                                    src={getImageUrl(product.image)}
+                                    alt={product.productname}
+                                    className="w-16 h-16 rounded-2xl object-contain bg-slate-100 p-2"
+                                    onError={(e) => {
+                                      e.currentTarget.src = 'https://img.websosanh.vn/v2/users/root_product/images/dien-thoai-apple-iphone-se-2-2/u1t1vlssg5s0z.jpg';
+                                    }}
+                                  />
+                                  <div>
+                                    <p className="font-bold text-slate-900">{product.productname || product.name}</p>
+                                    <p className="text-xs text-slate-500 line-clamp-2 max-w-md">{product.description || 'Chua co mo ta'}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 font-semibold text-slate-700">#{product.id}</td>
+                              <td className="px-6 py-4 font-bold text-slate-900">{formatPrice(product.price)}đ</td>
+                              <td className="px-6 py-4 text-slate-700">{product.quantity ?? 0}</td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${product.status === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                  {product.status === 1 ? 'Active' : 'Hidden'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-slate-700">{product.category?.name || product.category_id || '-'}</td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => openEditProductForm(product)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteProduct(product)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </div>
+            ) : activeTab === 'customers' ? (
+              <div className="space-y-8">
+                <section className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-slate-400 font-bold mb-2">People</p>
+                    <h2 className="text-4xl font-extrabold tracking-tight text-on-surface">User Directory</h2>
+                    <p className="text-on-surface-variant mt-2">Danh sach nguoi dung dang duoc lay truc tiep tu backend.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-full lg:min-w-[420px]">
+                    <div className="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Total Users</p>
+                      <p className="text-3xl font-extrabold tracking-tight text-on-surface mt-2">{users.length}</p>
+                    </div>
+                    <div className="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Active Users</p>
+                      <p className="text-3xl font-extrabold tracking-tight text-on-surface mt-2">{users.filter((user) => user.is_active).length}</p>
+                    </div>
+                    <div className="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Visible Results</p>
+                      <p className="text-3xl font-extrabold tracking-tight text-on-surface mt-2">{filteredUsers.length}</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="bg-surface-container-lowest rounded-[1.75rem] shadow-sm overflow-hidden border border-slate-200/60">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 px-6 py-5 border-b border-slate-200/60">
+                    <div>
+                      <h3 className="text-xl font-bold tracking-tight text-on-surface">Live User Table</h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setUsersLoaded(false);
+                        loadUsers();
+                      }}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base">refresh</span>
+                      Refresh Users
+                    </button>
+                  </div>
+
+                  {usersLoading ? (
+                    <div className="p-10 text-center text-slate-500">
+                      <div className="inline-block h-10 w-10 rounded-full border-4 border-slate-200 border-t-primary animate-spin"></div>
+                    </div>
+                  ) : usersError ? (
+                    <div className="p-10 text-center">
+                      <span className="material-symbols-outlined text-5xl text-red-400">error</span>
+                      <p className="mt-4 text-lg font-bold text-slate-800">Khong the tai nguoi dung</p>
+                      <p className="mt-2 text-slate-500">{usersError}</p>
+                      <button
+                        onClick={() => {
+                          setUsersLoaded(false);
+                          loadUsers();
+                        }}
+                        className="mt-6 px-5 py-2 rounded-full bg-primary text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        Thu lai
+                      </button>
+                    </div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">
+                      <span className="material-symbols-outlined text-5xl text-slate-300">group_off</span>
+                      <p className="mt-4 text-lg font-bold text-slate-800">Khong co nguoi dung phu hop</p>
+                      <p className="mt-2">Thu doi tu khoa tim kiem hoac kiem tra lai du lieu backend.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-[0.2em]">
+                          <tr>
+                            <th className="px-6 py-4 text-left">User</th>
+                            <th className="px-6 py-4 text-left">ID</th>
+                            <th className="px-6 py-4 text-left">Username</th>
+                            <th className="px-6 py-4 text-left">Email</th>
+                            <th className="px-6 py-4 text-left">Status</th>
+                            <th className="px-6 py-4 text-left">Role</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredUsers.map((user) => (
+                            <tr key={user.id} className="border-t border-slate-200/60 hover:bg-slate-50/80 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-4 min-w-[250px]">
+                                  <div className="w-12 h-12 rounded-full bg-blue-50 text-primary flex items-center justify-center font-extrabold text-sm shadow-sm">
+                                    {(user.name || user.username || 'U').slice(0, 2).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-slate-900">{user.name || user.username}</p>
+                                    <p className="text-xs text-slate-500">
+                                      {[user.first_name, user.last_name].filter(Boolean).join(' ') || 'Chua co ten day du'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 font-semibold text-slate-700">#{user.id}</td>
+                              <td className="px-6 py-4 text-slate-700">{user.username || '-'}</td>
+                              <td className="px-6 py-4 text-slate-700">{user.email || '-'}</td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${user.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                  {user.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-2">
+                                  {user.is_superuser && (
+                                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold bg-amber-50 text-amber-700">Admin</span>
+                                  )}
+                                  {user.is_staff && (
+                                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold bg-blue-50 text-blue-700">Staff</span>
+                                  )}
+                                  {!user.is_superuser && !user.is_staff && (
+                                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold bg-slate-100 text-slate-600">Customer</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </div>
             ) : (
               // --- NỘI DUNG CÁC TAB CÒN LẠI (TRẠNG THÁI PLACEHOLDER) ---
               <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-surface-container-lowest/50 rounded-3xl border border-dashed border-slate-300">
@@ -318,6 +945,191 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {productFormOpen && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-6">
+              <div className="w-full max-w-3xl bg-white rounded-[2rem] shadow-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-400 font-bold">
+                      {productFormMode === 'edit' ? 'Update Product' : 'Create Product'}
+                    </p>
+                    <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 mt-2">
+                      {productFormMode === 'edit' ? 'Edit product information' : 'Add a new product'}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={closeProductForm}
+                    className="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+
+                <form onSubmit={handleProductSubmit} className="px-8 py-6 space-y-6 max-h-[80vh] overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <label className="block">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Product Name</span>
+                      <input
+                        name="name"
+                        value={productFormData.name}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="iPhone 17 Pro 256GB"
+                        required
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Image Path</span>
+                      <input
+                        name="image"
+                        value={productFormData.image}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="/products/example.png"
+                        required
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Price</span>
+                      <input
+                        name="price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={productFormData.price}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        required
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Discount</span>
+                      <input
+                        name="discount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={productFormData.discount}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Quantity</span>
+                      <input
+                        name="quantity"
+                        type="number"
+                        min="0"
+                        value={productFormData.quantity}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Status</span>
+                      <select
+                        name="status"
+                        value={productFormData.status}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="1">Active</option>
+                        <option value="0">Hidden</option>
+                      </select>
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Category</span>
+                      <select
+                        name="category_id"
+                        value={productFormData.category_id}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        required
+                      >
+                        <option value="">Select category</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name} (ID: {category.id})
+                          </option>
+                        ))}
+                      </select>
+                      {categoriesError && (
+                        <p className="text-xs text-red-500 mt-2">{categoriesError}</p>
+                      )}
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Guarantee</span>
+                      <input
+                        name="guarantee"
+                        value={productFormData.guarantee}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="12 thang"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Description</span>
+                      <textarea
+                        name="description"
+                        value={productFormData.description}
+                        onChange={handleProductFormChange}
+                        rows="3"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="Mo ta ngan ve san pham"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="block text-sm font-bold text-slate-700 mb-2">Detail</span>
+                      <textarea
+                        name="detail"
+                        value={productFormData.detail}
+                        onChange={handleProductFormChange}
+                        rows="4"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="Thong tin chi tiet hon"
+                      />
+                    </label>
+                  </div>
+
+                  {productFormError && (
+                    <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                      {productFormError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={closeProductForm}
+                      className="px-5 py-3 rounded-full bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={productFormSubmitting}
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-white font-semibold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-colors disabled:opacity-70"
+                    >
+                      <span className="material-symbols-outlined text-base">
+                        {productFormMode === 'edit' ? 'save' : 'add_circle'}
+                      </span>
+                      {productFormSubmitting ? 'Saving...' : productFormMode === 'edit' ? 'Save Changes' : 'Create Product'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Background Elements for Visual Depth */}
           <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
