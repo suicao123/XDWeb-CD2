@@ -42,7 +42,7 @@ class OrderController extends Controller
             $order = Order::create([
                 'user_id' => $user->id,
                 'total' => $total,
-                'status' => 0,
+                'status' => 0, // 0 = chưa thanh toán
                 'payment_method' => $request->payment_method,
                 'address' => $request->address
             ]);
@@ -62,7 +62,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            // COD
+            // ================= COD =================
             if ($request->payment_method === 'cod') {
                 Cart::where('user_id', $user->id)->delete();
 
@@ -72,7 +72,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            // MOMO
+            // ================= MOMO =================
             if ($request->payment_method === 'momo') {
 
                 $endpoint = config('momo.endpoint');
@@ -84,11 +84,10 @@ class OrderController extends Controller
 
                 $orderId = time() . "_" . $order->id;
                 $requestId = time() . "";
-                $amount = (string) $total; // FIX
+                $amount = (string) $total;
                 $orderInfo = "Thanh toán đơn hàng #" . $order->id;
                 $extraData = "";
 
-                // FIX SIGNATURE
                 $rawHash = "accessKey=$accessKey"
                     . "&amount=$amount"
                     . "&extraData=$extraData"
@@ -102,7 +101,6 @@ class OrderController extends Controller
 
                 $signature = hash_hmac("sha256", $rawHash, $secretKey);
 
-                // FIX DATA
                 $data = [
                     'partnerCode' => $partnerCode,
                     'partnerName' => "Test",
@@ -119,7 +117,6 @@ class OrderController extends Controller
                     'signature' => $signature
                 ];
 
-                // CURL
                 $ch = curl_init($endpoint);
 
                 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
@@ -144,7 +141,6 @@ class OrderController extends Controller
 
                 return response()->json([
                     'message' => 'Momo created',
-                    'momo_response' => $result,
                     'payUrl' => $result['payUrl'] ?? null
                 ]);
             }
@@ -155,25 +151,45 @@ class OrderController extends Controller
         });
     }
 
+    // ================= MOMO IPN =================
     public function momoIpn(Request $request)
     {
         $parts = explode('_', $request->orderId);
-        $orderId = $parts[1];
-        
-        $order = Order::find($orderId);
+        $orderId = $parts[1] ?? null;
 
-        if ($order && $request->resultCode == 0) {
+        if (!$orderId) {
+            return response()->json(['message' => 'Invalid orderId'], 400);
+        }
+
+        $order = Order::with('orderDetails')->find($orderId);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        if ($request->resultCode == 0) {
+            // thanh toán thành công
             $order->status = 1;
             $order->save();
 
-            Cart::where('user_id', $order->user_id)->delete();
-            
-            return response()->json(['message' => 'Thanh toán thành công và đã xóa giỏ hàng']);
+            // 🔥 chỉ xoá sản phẩm đã đặt
+            $productIds = $order->orderDetails->pluck('product_id');
+
+            Cart::where('user_id', $order->user_id)
+                ->whereIn('product_id', $productIds)
+                ->delete();
+
+            return response()->json([
+                'message' => 'Thanh toán thành công, đã cập nhật order và xóa cart'
+            ]);
         }
 
-        return response()->json(['message' => 'Thanh toán thất bại hoặc không tìm thấy đơn hàng'], 400);
+        return response()->json([
+            'message' => 'Thanh toán thất bại'
+        ], 400);
     }
 
+    // ================= RETURN =================
     public function momoReturn(Request $request)
     {
         return response()->json([
