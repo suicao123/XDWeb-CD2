@@ -15,7 +15,6 @@ const Home = () => {
 
     const getImageUrl = (imagePath) => {
         if (!imagePath) return "https://via.placeholder.com/300x300?text=No+Image";
-        if (imagePath.startsWith("http")) return imagePath;
         return `${BASE_IMAGE_URL}${imagePath.startsWith("/") ? imagePath : `/${imagePath}`}`;
     };
 
